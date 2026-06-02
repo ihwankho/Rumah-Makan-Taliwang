@@ -5,8 +5,29 @@
 @section('content')
 
   {{-- Bagian Atas: Info & Tombol Tambah --}}
-  <div class="flex justify-end mb-6">
-   
+  <div class="flex justify-between items-center mb-6 gap-4">
+    <div class="flex items-center gap-3">
+      {{-- Search Form --}}
+      <form method="GET" action="{{ route('admin.menu.index') }}" class="flex gap-2">
+        <input type="text" name="search" placeholder="Cari menu..." value="{{ $search ?? '' }}"
+               class="px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:border-orange-500 w-64">
+        
+        {{-- Kategori Filter --}}
+        <select name="kategori_id" class="px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:border-orange-500"
+                onchange="this.form.submit()">
+          <option value="">Semua Kategori</option>
+          @foreach($kategoris as $kategori)
+            <option value="{{ $kategori->id }}" {{ $selectedKategoriId == $kategori->id ? 'selected' : '' }}>
+              {{ $kategori->nama }}
+            </option>
+          @endforeach
+        </select>
+
+        <button type="submit" class="px-5 py-2.5 bg-gray-600 text-white rounded-xl font-semibold hover:bg-gray-700 transition-colors">
+          Cari
+        </button>
+      </form>
+    </div>
 
     {{-- Diperbaiki: route mengarah ke admin.menu.create --}}
     <a href="{{ route('admin.menu.create') }}"

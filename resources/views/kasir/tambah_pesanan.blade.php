@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kasir - Tambah Pesanan</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  @vite('resources/css/app.css')
 </head>
 
 <body class="bg-gray-50 min-h-screen">
 
   {{-- Header --}}
   <div class="bg-white border-b shadow-sm">
-    <div class="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
+    <div class="max-w-[110rem] mx-auto px-6 py-6 flex items-center justify-between">
       <div>
         <div class="text-2xl font-bold text-gray-800">
           Tambah Pesanan (Non Masak)
@@ -30,7 +30,7 @@
     </div>
   </div>
 
-  <div class="max-w-6xl mx-auto px-6 py-8">
+  <div class="max-w-[110rem] mx-auto px-6 py-8">
 
     @if(session('success'))
       <div class="mb-6 bg-green-100 border border-green-200 text-green-800 px-6 py-4 rounded-xl text-base font-semibold">

@@ -10,23 +10,20 @@ use App\Models\DetailPesanan;
 use App\Models\KategoriMenu;
 use App\Models\Menu;
 use Illuminate\Support\Facades\DB;
+use App\Events\PesananBaruDibuat;
 
 
 class PemesananController extends Controller
 {
     public function index(Request $request, $meja)
     {
-        $kategoriId = $request->query('kategori');
         $kategoris = KategoriMenu::orderBy('nama')->get();
-        $menusQuery = Menu::where('is_aktif', true)
+
+        $menus = Menu::where('is_aktif', true)
             ->where('perlu_dimasak', true)
-            ->with('kategori');
-
-        if ($kategoriId) {
-            $menusQuery->where('kategori_menu_id', $kategoriId);
-        }
-
-        $menus = $menusQuery->orderBy('nama')->get();
+            ->with('kategori')
+            ->orderBy('nama')
+            ->get();
 
         $cart = session('cart', []);
         $cartQty = array_sum(array_column($cart, 'qty'));
@@ -36,7 +33,6 @@ class PemesananController extends Controller
             'meja',
             'kategoris',
             'menus',
-            'kategoriId',
             'cart',
             'cartQty',
             'cartTotal'
@@ -75,7 +71,7 @@ class PemesananController extends Controller
     public function min(Menu $menu)
     {
         $cart = session('cart', []);
-        $itemQty = 0; // Default qty jika item dihapus
+        $itemQty = 0;
 
         if (isset($cart[$menu->id])) {
             $cart[$menu->id]['qty'] -= 1;
@@ -89,7 +85,6 @@ class PemesananController extends Controller
 
         session(['cart' => $cart]);
 
-        // Hitung total untuk dikirim ke Javascript
         $cartQty = array_sum(array_column($cart, 'qty'));
         $cartTotal = array_sum(array_map(fn($item) => $item['qty'] * $item['harga'], $cart));
 
@@ -106,70 +101,148 @@ class PemesananController extends Controller
         $cartQty = array_sum(array_column($cart, 'qty'));
         $cartTotal = array_sum(array_map(fn($item) => $item['qty'] * $item['harga'], $cart));
 
-        return view('pemesanan.checkout', compact('meja', 'cart', 'cartQty', 'cartTotal'));
+        $pesananAktif = Pesanan::where('id_meja', $meja)
+            ->where('status_pesanan', '!=', 'dibayar')
+            ->first();
+
+        return view('pemesanan.checkout', compact('meja', 'cart', 'cartQty', 'cartTotal', 'pesananAktif'));
     }
 
     public function confirmOrder(Request $request, $mejaId)
     {
-        $request->validate([
-            'nama' => 'required|string|max:100',
+        // 1. Cek apakah ada SEMBARANG pesanan aktif (untuk deteksi meja kosong/terisi)
+        $pesananAktif = Pesanan::where('id_meja', $mejaId)
+            ->where('status_pesanan', '!=', 'dibayar')
+            ->first();
+
+        // Validasi input
+        $rules = [
             'tipe' => 'required|in:makan_ditempat,bungkus',
-        ]);
+        ];
+        if (!$pesananAktif) {
+            $rules['nama'] = 'required|string|max:100'; // Nama wajib jika meja kosong
+        }
+        $request->validate($rules);
 
         $cart = session('cart', []);
-
         if (count($cart) === 0) {
             return redirect()->route('menu.checkout', $mejaId)
                 ->with('error', 'Keranjang masih kosong!');
         }
 
-        // ✅ Validasi meja
         $meja = Meja::find($mejaId);
         if (!$meja) {
             return back()->with('error', 'Meja tidak ditemukan!');
         }
 
-        $pesanan = DB::transaction(function () use ($request, $mejaId, $cart) {
+        // Hitung total keranjang saat ini
+        $cartTotal = 0;
+        foreach ($cart as $item) {
+            $cartTotal += ($item['qty'] * $item['harga']);
+        }
 
-            // 1) buat pelanggan
-            $pelanggan = Pelanggan::create([
-                'nama_pelanggan' => $request->nama,
-            ]);
+        $pesanan = DB::transaction(function () use ($request, $mejaId, $cart, $cartTotal, $pesananAktif) {
 
-            // 2) hitung total
-            $totalHarga = 0;
-            foreach ($cart as $item) {
-                $totalHarga += ($item['qty'] * $item['harga']);
-            }
+            // 2. CEK PESANAN DENGAN TIPE YANG SAMA (KUNCI PERBAIKAN LOGIKA)
+            $pesananSamaTipe = Pesanan::where('id_meja', $mejaId)
+                ->whereNotIn('status_pesanan', ['selesai', 'dibayar'])
+                ->where('tipe_pesanan', $request->tipe) // Cari yang tipenya sama persis
+                ->first();
 
-            // 3) buat pesanan
-            $pesanan = Pesanan::create([
-                'id_meja' => $mejaId,
-                'id_pelanggan' => $pelanggan->id,
-                'tipe_pesanan' => $request->tipe,
-                'status_pesanan' => 'menunggu',
-                'total_harga' => $totalHarga,
-            ]);
+            if ($pesananSamaTipe) {
+                // ==========================================
+                // SKENARIO A: SUDAH ADA PESANAN DENGAN TIPE TERSEBUT
+                // (Misal: Nambah es teh untuk diminum di tempat)
+                // ==========================================
+                foreach ($cart as $item) {
+                    // CEK DULU: Apakah menu ini sudah ada di pesanan ini?
+                    $detailExisting = DetailPesanan::where('id_pesanan', $pesananSamaTipe->id)
+                        ->where('id_menu', $item['id'])
+                        ->first();
 
-            // 4) buat detail_pesanans
-            foreach ($cart as $item) {
-                DetailPesanan::create([
-                    'id_pesanan' => $pesanan->id,
-                    'id_menu' => $item['id'],
-                    'jumlah' => $item['qty'],
-                    'harga_satuan' => $item['harga'],
-                    'subtotal' => $item['qty'] * $item['harga'],
+                    if ($detailExisting) {
+                        // JIKA SUDAH ADA: Tambah jumlah (qty) dan hitung ulang subtotalnya
+                        $qtyBaru = $detailExisting->jumlah + $item['qty'];
+                        $detailExisting->update([
+                            'jumlah'   => $qtyBaru,
+                            'subtotal' => $qtyBaru * $detailExisting->harga_satuan,
+                        ]);
+                    } else {
+                        // JIKA BELUM ADA: Buat baris baru di nota
+                        DetailPesanan::create([
+                            'id_pesanan'   => $pesananSamaTipe->id,
+                            'id_menu'      => $item['id'],
+                            'jumlah'       => $item['qty'],
+                            'harga_satuan' => $item['harga'],
+                            'subtotal'     => $item['qty'] * $item['harga'],
+                        ]);
+                    }
+                }
+
+                // Update total harga utama secara akurat (menjumlahkan semua subtotal terbaru)
+                $totalTerbaru = DetailPesanan::where('id_pesanan', $pesananSamaTipe->id)->sum('subtotal');
+                $pesananSamaTipe->update([
+                    'total_harga' => $totalTerbaru
                 ]);
+
+                $hasilPesanan = $pesananSamaTipe;
+            } else {
+                // ==========================================
+                // SKENARIO B: BELUM ADA PESANAN DENGAN TIPE TERSEBUT
+                // (Misal: Meja kosong, ATAU nambah pesanan tapi untuk dibungkus)
+                // ==========================================
+
+                if ($pesananAktif) {
+                    // Meja ada isinya, pinjam ID pelanggan agar nama tidak dobel
+                    $idPelanggan = $pesananAktif->id_pelanggan;
+                } else {
+                    // Meja benar-benar kosong, buat pelanggan baru
+                    $pelanggan = Pelanggan::create([
+                        'nama_pelanggan' => $request->nama,
+                    ]);
+                    $idPelanggan = $pelanggan->id;
+                }
+
+                // Buat ID Pesanan baru khusus untuk tipe ini
+                $pesananBaru = Pesanan::create([
+                    'id_meja'        => $mejaId,
+                    'id_pelanggan'   => $idPelanggan,
+                    'tipe_pesanan'   => $request->tipe,
+                    'status_pesanan' => 'menunggu',
+                    'total_harga'    => $cartTotal,
+                ]);
+
+                // Karena ini pesanan baru, tidak mungkin ada item duplikat, jadi langsung create
+                foreach ($cart as $item) {
+                    DetailPesanan::create([
+                        'id_pesanan'   => $pesananBaru->id,
+                        'id_menu'      => $item['id'],
+                        'jumlah'       => $item['qty'],
+                        'harga_satuan' => $item['harga'],
+                        'subtotal'     => $item['qty'] * $item['harga'],
+                    ]);
+                }
+
+                $hasilPesanan = $pesananBaru;
             }
 
-            // 5) kosongkan cart
+            // Kosongkan cart setelah berhasil
             session()->forget('cart');
 
-            return $pesanan;
+            return $hasilPesanan;
         });
+        event(new PesananBaruDibuat(
+            "Ada pesanan baru masuk!!!",
+            $meja->nomor_meja
+        ));
 
-        // simpan id pesanan terakhir agar halaman "pesanan saya" bisa tampil
+        // Simpan id pesanan terakhir agar halaman "pesanan saya" bisa tampil
         session(['last_pesanan_id' => $pesanan->id]);
+
+        if ($request->from === 'kasir') {
+            return redirect()->route('kasir.index')
+                ->with('success', 'Pesanan meja ' . $meja->nomor_meja . ' berhasil diproses ✅');
+        }
 
         return redirect()->route('menu.pesanan', $mejaId)
             ->with('success', 'Pesanan berhasil dibuat!');
@@ -192,7 +265,6 @@ class PemesananController extends Controller
             return redirect()->route('menu.index', $mejaId);
         }
 
-        // Filter hanya detail pesanan dengan menu yang perlu dimasak
         $pesanan->detailPesanans = $pesanan->detailPesanans->filter(fn($detail) => $detail->menu->perlu_dimasak)->values();
 
         return view('pemesanan.pesanan', compact('mejaId', 'pesanan'));

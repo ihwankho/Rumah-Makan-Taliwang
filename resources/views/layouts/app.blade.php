@@ -7,7 +7,7 @@
   @vite('resources/css/app.css')
 </head>
 <body class="bg-gray-100 antialiased text-gray-800">
-  <div class="max-w-lg mx-auto bg-gray-50 min-h-screen shadow-2xl relative overflow-x-hidden">
+  <div class="max-w-lg md:max-w-4xl mx-auto bg-gray-50 min-h-screen shadow-2xl relative overflow-x-hidden">
 
   {{-- Header Statis (Opsional jika semua halaman butuh header yang sama) --}}
   @yield('header')

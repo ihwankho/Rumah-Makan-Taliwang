@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dapur - Daftar Pesanan</title>
-@vite('resources/css/app.css')
+@vite(['resources/css/app.css', 'resources/js/app.js'])
   <style>
     .snap-x-mandatory {
       scroll-snap-type: x mandatory;
@@ -12,6 +12,13 @@
     .snap-start {
       scroll-snap-align: start;
     }
+    .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
   </style>
 </head>
 
@@ -20,24 +27,57 @@
   {{-- Topbar --}}
   <div class="bg-white border-b shadow-sm">
     <div class="max-w-[110rem] mx-auto px-6 py-6 flex items-center gap-3">
-      <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center text-2xl">
-        👨‍🍳
-      </div>
-      <div>
-        <div class="text-2xl font-bold">Dapur</div>
-        <div class="text-lg text-gray-600">Daftar Pesanan Masuk</div>
-      </div>
 
-      <div class="ml-auto">
-        <button
-          id="openKelolaMenuButton"
-          type="button"
-          class="px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-800 font-semibold hover:bg-gray-50 shadow-sm">
-          Kelola Menu
-        </button>
-      </div>
+        {{-- Bungkus tombol + dropdown --}}
+        <div class="relative">
+
+            <button onclick="forlog()" class="flex items-center gap-3 focus:outline-none">
+                <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center text-2xl">
+                    👨‍🍳
+                </div>
+            </button>
+
+            {{-- Dropdown --}}
+            <div 
+                id="profileMenu"
+                class="hidden absolute left-0 mt-3 w-52 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50"
+            >
+
+                <div class="px-4 py-3 border-b">
+                    <p class="text-sm font-semibold text-gray-800">dapur</p>
+                </div>
+
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+
+                    <button 
+                        type="submit"
+                        class="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition"
+                    >
+                        Logout
+                    </button>
+                </form>
+
+            </div>
+
+        </div>
+
+        <div>
+            <div class="text-2xl font-bold">Dapur</div>
+            <div class="text-lg text-gray-600">Daftar Pesanan Masuk</div>
+        </div>
+
+        <div class="ml-auto">
+            <button
+                id="openKelolaMenuButton"
+                type="button"
+                class="px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-800 font-semibold hover:bg-gray-50 shadow-sm">
+                Kelola Menu
+            </button>
+        </div>
+
     </div>
-  </div>
+</div>
 
   {{-- Modal Kelola Menu --}}
   <div id="kelolaMenuModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 px-4 py-8">
@@ -103,13 +143,29 @@
     </div>
   </div>
 
-  {{-- Notifikasi --}}
+  {{-- Notifikasi (Dibuat Melayang / Floating) --}}
   @if(session('success'))
-    <div class="max-w-7xl mx-auto px-6 pt-6">
-      <div class="bg-green-200 border border-green-300 text-green-900 px-6 py-4 rounded-xl text-lg font-semibold">
-        {{ session('success') }}
+    <div id="toast-notif" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] transition-all duration-500 ease-in-out">
+      <div class="bg-green-100 border border-green-400 text-green-800 px-6 py-3 rounded-2xl shadow-xl text-lg font-bold flex items-center gap-4">
+        <span>{{ session('success') }}</span>
+        
+        {{-- Tombol X untuk menutup manual --}}
+        <button onclick="document.getElementById('toast-notif').remove()" class="text-green-600 hover:text-green-900 text-2xl leading-none focus:outline-none">
+          &times;
+        </button>
       </div>
     </div>
+
+    {{-- Script untuk menghilangkan notif otomatis setelah 3 detik --}}
+    <script>
+      setTimeout(function() {
+        let toast = document.getElementById('toast-notif');
+        if (toast) {
+          toast.classList.add('opacity-0', '-translate-y-5'); // Animasi memudar dan naik
+          setTimeout(() => toast.remove(), 500); // Hapus elemen setelah animasi selesai
+        }
+      }, 3000);
+    </script>
   @endif
 
   {{-- Content --}}
@@ -123,7 +179,7 @@
         $chunks = $pesanans->chunk(3);
       @endphp
       {{-- ✅ Horizontal Paging --}}
-      <div class="overflow-x-auto snap-x-mandatory scroll-smooth">
+      <div id="scrollContainer" class="overflow-x-auto no-scrollbar snap-x-mandatory scroll-smooth">
         <div class="flex gap-8 pb-4">
 
           @foreach($chunks as $pageIndex => $chunk)
@@ -156,11 +212,10 @@
                     </div>
                     <div class="my-6 border-t"></div>
                     {{-- List Item --}}
-                    <div class="space-y-4 flex-1 overflow-y-auto pr-2">
+                    <div class="scroll-otomatis-item space-y-2 flex-1 overflow-y-auto pr-2">
                       @foreach($pesanan->detailPesanans as $detail)
-                        @if($detail->menu && $detail->menu->perlu_dimasak)
                           
-                          <div class="border border-gray-100 rounded-xl p-4 bg-white shadow-sm flex flex-col gap-3 transition-all">
+                          <div class="border border-gray-50 rounded-xl p-2 bg-white shadow-sm flex flex-col gap-3 transition-all min-h-[50px]">
                             
                             {{-- Info Item --}}
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -168,7 +223,7 @@
                                 <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-base border border-orange-200">
                                   {{ $detail->jumlah }}x
                                 </div>
-                                <div class="text-lg font-bold text-gray-800">
+                                <div class="text-xl font-bold text-gray-800">
                                   {{ $detail->menu->nama }}
                                 </div>
                               </div>
@@ -189,7 +244,7 @@
                               <div class="grid gap-2">
                                 <label class="text-xs font-medium text-gray-600">Pilih Menu Pengganti:</label>
                                 <select class="menu-select border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none w-full bg-gray-50" data-detail-id="{{ $detail->id }}">
-                                  @foreach($menus as $menuOption)
+                                  @foreach($menusDropdown as $menuOption)
                                     <option value="{{ $menuOption->id }}" {{ $menuOption->id == $detail->id_menu ? 'selected' : '' }}>
                                       {{ $menuOption->nama }} {{ !$menuOption->is_aktif ? '(Tidak Aktif)' : '' }}
                                     </option>
@@ -208,7 +263,6 @@
 
                           </div>
 
-                        @endif
                       @endforeach
                     </div>
 
@@ -245,12 +299,8 @@
       {{-- indikator halaman --}}
       <div class="mt-6 flex justify-center gap-3">
         @foreach($chunks as $i => $chunk)
-          <div class="w-4 h-4 rounded-full {{ $loop->first ? 'bg-orange-500' : 'bg-gray-300' }}"></div>
+          <div class="page-indicator w-4 h-4 rounded-full {{ $loop->first ? 'bg-orange-500' : 'bg-gray-300' }}"></div>
         @endforeach
-      </div>
-
-      <div class="text-center text-lg text-gray-600 mt-3">
-        Geser ke kanan untuk pesanan berikutnya →
       </div>
 
     @endif
@@ -259,6 +309,100 @@
 
 </body>
 <script>
+  document.addEventListener('DOMContentLoaded', function() {
+      // 1. Cari semua kotak daftar menu di setiap kartu pesanan
+      const daftarWadahItem = document.querySelectorAll('.scroll-otomatis-item');
+      
+      daftarWadahItem.forEach(wadah => {
+          // 2. Cek apakah isi menu lebih panjang dari kotak (apakah butuh di-scroll?)
+          if (wadah.scrollHeight > wadah.clientHeight) {
+              let isHovered = false;
+              let isPausing = false;
+              
+              // Kecepatan turun (makin besar angkanya, makin cepat)
+              const kecepatan = 1; 
+              
+              // Hentikan scroll otomatis saat koki menyentuh/mengarahkan mouse
+              // (Misalnya koki ingin menekan tombol edit/hapus)
+              wadah.addEventListener('mouseenter', () => isHovered = true);
+              wadah.addEventListener('mouseleave', () => isHovered = false);
+              wadah.addEventListener('touchstart', () => isHovered = true);
+              wadah.addEventListener('touchend', () => isHovered = false);
+
+              // 3. Mesin Penggerak Otomatis
+              setInterval(() => {
+                  // Kalau lagi disentuh koki atau lagi masa jeda, diam di tempat
+                  if (isHovered || isPausing) return;
+                  
+                  // Geser ke bawah perlahan
+                  wadah.scrollTop += kecepatan;
+
+                  // 4. Jika sudah mentok sampai daftar pesanan paling bawah
+                  // (dikurangi 1 pixel untuk toleransi layar)
+                  if (wadah.scrollTop + wadah.clientHeight >= wadah.scrollHeight - 1) {
+                      isPausing = true;
+                      
+                      // Berhenti sebentar di bawah (2 detik untuk baca pesanan terakhir)
+                      setTimeout(() => {
+                          // Luncurkan kembali ke paling atas dengan mulus
+                          wadah.scrollTo({ top: 0, behavior: 'smooth' });
+                          
+                          // Berhenti sebentar di atas (1.5 detik), lalu mulai turun lagi
+                          setTimeout(() => {
+                              isPausing = false;
+                          }, 1500); 
+                          
+                      }, 2000); 
+                  }
+              }, 40); // 40 milidetik = mengatur kemulusan pergerakan
+          }
+      });
+  });
+  function forlog() {
+        const menu = document.getElementById('profileMenu');
+        menu.classList.toggle('hidden');
+    }
+
+    window.addEventListener('click', function(e) {
+        const profileMenu = document.getElementById('profileMenu');
+
+        if (!e.target.closest('.relative')) {
+            profileMenu.classList.add('hidden');
+        }
+    });
+  //scroll indikator
+  document.addEventListener('DOMContentLoaded', function () {
+
+  const container = document.getElementById('scrollContainer');
+  const indicators = document.querySelectorAll('.page-indicator');
+
+  if (!container) return; // jaga-jaga kalau tidak ada
+
+  container.addEventListener('scroll', () => {
+    const scrollLeft = container.scrollLeft;
+    const width = container.clientWidth;
+
+    const index = Math.floor(scrollLeft / width + 0.5);
+
+    indicators.forEach((dot, i) => {
+      dot.classList.remove('bg-orange-500');
+      dot.classList.add('bg-gray-300');
+
+      if (i === index) {
+        dot.classList.remove('bg-gray-300');
+        dot.classList.add('bg-orange-500');
+      }
+    });
+  });
+  indicators.forEach((dot, i) => {
+    dot.addEventListener('click', () => {
+      container.scrollTo({
+        left: i * container.clientWidth,
+        behavior: 'smooth'
+      });
+    });
+  });
+});
   // Logika Interaksi Edit Pesanan In-Page
   document.addEventListener('DOMContentLoaded', function () {
     
@@ -434,4 +578,17 @@
     });
   });
 </script>
+{{-- <script type="module">
+    // Mendengarkan channel 'dapur-channel'
+    window.Echo.channel('dapur-channel')
+        .listen('PesananBaruDibuat', (event) => {
+            
+            // 1. Munculkan peringatan (Bisa diganti dengan Toast agar lebih cantik)
+            alert('🔔 INFO DAPUR: \n' + event.pesan + ' di Meja ' + event.nomor_meja);
+            
+            // 2. Refresh halaman otomatis agar pesanan baru muncul
+            // Nanti jika sudah pro, Anda bisa memunculkan div baru tanpa refresh
+            window.location.reload(); 
+        });
+</script> --}}
 </html>

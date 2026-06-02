@@ -8,9 +8,9 @@
     <div class="text-xs opacity-90">Checkout</div>
     <div class="font-bold text-lg">Pesanan Saya</div>
   </div>
-  <a href="{{ route('menu.index', $meja) }}" class="text-sm underline">
-    Kembali
-  </a>
+  <a href="{{ route('menu.index', ['meja' => $meja, 'from' => request('from')]) }}" class="text-sm underline">
+  Kembali
+</a>
 </div>
 @endsection
 
@@ -20,10 +20,10 @@
     <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-center">
       <div class="font-semibold">Keranjang masih kosong</div>
       <div class="text-sm text-gray-500 mt-1">Silakan pilih menu terlebih dahulu.</div>
-      <a href="{{ route('menu.index', $meja) }}"
-         class="inline-block mt-4 bg-orange-600 text-white px-4 py-2 rounded-xl font-semibold">
-        Kembali ke Menu
-      </a>
+      <a href="{{ route('menu.index', ['meja' => $meja, 'from' => request('from')]) }}"
+   class="inline-block mt-4 bg-orange-600 text-white px-4 py-2 rounded-xl font-semibold">
+  Kembali ke Menu
+</a>
     </div>
   @else
     {{-- List cart --}}
@@ -83,37 +83,44 @@
     </div>
 
     <form method="POST" action="{{ route('menu.confirm', $meja) }}">
-      @csrf
+  @csrf
+  <input type="hidden" name="from" value="{{ request('from') }}">
+  
+  @if($pesananAktif)
+    {{-- Meja Aktif: Nama di-disable, tapi tetep nampilin info --}}
+    <div class="mb-4">
+      <label class="text-sm font-semibold">Nama Pelanggan</label>
+      <input type="text" value="{{ $pesananAktif->pelanggan->nama_pelanggan ?? 'Tanpa Nama' }}" disabled 
+             class="mt-1 w-full border bg-gray-100 rounded-xl px-3 py-2 text-gray-500 font-bold cursor-not-allowed">
+    </div>
+  @else
+    {{-- Meja Kosong: Wajib isi nama --}}
+    <div class="mb-4">
       <label class="text-sm font-semibold">Nama</label>
-      <input
-        type="text"
-        name="nama"
-        required
-        placeholder="Masukkan nama pelanggan"
-        class="mt-1 w-full border rounded-xl px-3 py-2 focus:outline-none focus:ring focus:ring-orange-200"
-      >
+      <input type="text" name="nama" required placeholder="Masukkan nama pelanggan"
+             class="mt-1 w-full border rounded-xl px-3 py-2 focus:outline-none focus:ring focus:ring-orange-200">
+    </div>
+  @endif
 
-      <div class="mt-4">
-        <div class="text-sm font-semibold mb-2">Tipe Pesanan</div>
-        <div class="flex gap-3">
-          <label class="flex items-center gap-2 border rounded-xl px-3 py-2 w-full cursor-pointer">
-            <input type="radio" name="tipe" value="makan_ditempat" required>
-            <span class="text-sm">Makan ditempat</span>
-          </label>
-          <label class="flex items-center gap-2 border rounded-xl px-3 py-2 w-full cursor-pointer">
-            <input type="radio" name="tipe" value="bungkus" required>
-            <span class="text-sm">Bungkus</span>
-          </label>
-        </div>
-      </div>
+  {{-- TIPE PESANAN (Selalu Muncul) --}}
+  <div class="mt-4">
+    <div class="text-sm font-semibold mb-2">Tipe Pesanan</div>
+    <div class="flex gap-3">
+      <label class="flex items-center gap-2 border rounded-xl px-3 py-2 w-full cursor-pointer hover:bg-orange-50">
+        <input type="radio" name="tipe" value="makan_ditempat" required class="text-orange-600">
+        <span class="text-sm">Makan di tempat</span>
+      </label>
+      <label class="flex items-center gap-2 border rounded-xl px-3 py-2 w-full cursor-pointer hover:bg-orange-50">
+        <input type="radio" name="tipe" value="bungkus" required class="text-orange-600">
+        <span class="text-sm">Bungkus</span>
+      </label>
+    </div>
+  </div>
 
-      <button
-        type="submit"
-        class="mt-5 w-full bg-orange-600 text-white font-bold py-3 rounded-xl hover:bg-orange-700"
-      >
-        Konfirmasi
-      </button>
-    </form>
+  <button type="submit" class="mt-5 w-full bg-orange-600 text-white font-bold py-3 rounded-xl hover:bg-orange-700">
+    {{ $pesananAktif ? 'Tambahkan Pesanan Baru' : 'Konfirmasi Pesanan' }}
+  </button>
+</form>
   </div>
 </div>
 @endsection

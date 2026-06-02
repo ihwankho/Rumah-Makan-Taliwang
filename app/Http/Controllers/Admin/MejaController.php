@@ -17,9 +17,9 @@ class MejaController extends Controller
 
     public function store(Request $request)
     {
-        $lastNumber = Meja::max('nomor_meja');
+        $maxMeja = Meja::selectRaw('MAX(CAST(nomor_meja AS UNSIGNED)) as tertinggi')->first();
 
-        $next = $lastNumber ? ((int)$lastNumber + 1) : 1;
+        $next = ($maxMeja->tertinggi ?? 0) + 1;
 
         Meja::create([
             'nomor_meja' => (string)$next,
@@ -58,8 +58,8 @@ class MejaController extends Controller
     public function cetakQr($id)
     {
         $meja = Meja::findOrFail($id);
-
         $url = route('menu.index', $meja->id);
+        dd($url);
 
         $qrCode = QrCode::size(250)->margin(1)->generate($url);
 

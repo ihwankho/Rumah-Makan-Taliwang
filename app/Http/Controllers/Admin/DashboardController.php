@@ -48,9 +48,9 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        // 6. Tren pengunjung (7 hari terakhir)
+        // 6. Tren pengunjung (14 hari terakhir)
         $trenPengunjung = [];
-        for ($i = 6; $i >= 0; $i--) {
+        for ($i = 13; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
             $count = Pesanan::whereDate('created_at', $date)->count();
             $trenPengunjung[] = [

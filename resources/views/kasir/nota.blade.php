@@ -41,11 +41,11 @@
   {{-- Nota --}}
   <div class="max-w-3xl mx-auto px-6 py-8">
 
-    @if(session('success'))
+    {{-- @if(session('success'))
       <div class="bg-green-100 border border-green-200 text-green-800 px-6 py-4 rounded-xl mb-6 text-base font-semibold no-print">
         {{ session('success') }}
       </div>
-    @endif
+    @endif --}}
 
     <div class="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
 

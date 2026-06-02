@@ -10,15 +10,29 @@ class DapurController extends Controller
 {
     public function index()
     {
-        // ambil pesanan yang belum selesai
-        $pesanans = Pesanan::with(['detailPesanans.menu', 'pelanggan', 'meja'])
+        $pesanans = Pesanan::with([
+            'pelanggan',
+            'meja',
+            'detailPesanans' => function ($query) {
+                $query->whereHas('menu', function ($q) {
+                    $q->where('perlu_dimasak', true);
+                });
+            },
+            'detailPesanans.menu'
+        ])
             ->whereIn('status_pesanan', ['menunggu', 'diproses'])
+            ->whereHas('detailPesanans.menu', function ($q) {
+                $q->where('perlu_dimasak', true);
+            })
             ->orderBy('created_at', 'asc')
             ->get();
-
+        $menusDropdown = Menu::where('perlu_dimasak', true)
+            ->where('is_aktif', true)
+            ->orderBy('nama')
+            ->get();
         $menus = Menu::orderBy('nama')->get();
 
-        return view('dapur.index', compact('pesanans', 'menus'));
+        return view('dapur.index', compact('pesanans', 'menus', 'menusDropdown'));
     }
 
     public function selesai(Pesanan $pesanan)
@@ -60,7 +74,6 @@ class DapurController extends Controller
             return back()->with('error', 'Item pesanan tidak ditemukan.');
         }
 
-        // Kurangi total harga pesanan
         $pesanan->update([
             'total_harga' => $pesanan->total_harga - $detail->subtotal
         ]);
@@ -94,19 +107,16 @@ class DapurController extends Controller
             return back()->with('error', 'Menu tidak ditemukan.');
         }
 
-        // Hitung harga baru berdasarkan jumlah yang sudah ada di database
         $jumlahTetap = $detail->jumlah;
         $newSubtotal = $newMenu->harga * $jumlahTetap;
         $selisih = $newSubtotal - $detail->subtotal;
 
-        // Update menu dan subtotal saja
         $detail->update([
             'id_menu' => $newMenu->id,
             'harga_satuan' => $newMenu->harga,
             'subtotal' => $newSubtotal,
         ]);
 
-        // Update total harga pesanan
         $pesanan->update([
             'total_harga' => $pesanan->total_harga + $selisih
         ]);

@@ -10,14 +10,27 @@ use Illuminate\Support\Facades\Storage;
 
 class MenuController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $menus = Menu::with('kategori')
-            ->orderBy('kategori_menu_id')
+        $kategoris = KategoriMenu::orderBy('nama')->get();
+        $selectedKategoriId = $request->get('kategori_id');
+        $search = $request->get('search');
+
+        $query = Menu::with('kategori');
+
+        if ($selectedKategoriId) {
+            $query->where('kategori_menu_id', $selectedKategoriId);
+        }
+
+        if ($search) {
+            $query->where('nama', 'like', '%' . $search . '%');
+        }
+
+        $menus = $query->orderBy('kategori_menu_id')
             ->orderBy('nama')
             ->get();
 
-        return view('admin.menu.index', compact('menus'));
+        return view('admin.menu.index', compact('menus', 'kategoris', 'selectedKategoriId', 'search'));
     }
 
     public function create()
