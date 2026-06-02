@@ -59,8 +59,6 @@ class MejaController extends Controller
     {
         $meja = Meja::findOrFail($id);
         $url = route('menu.index', $meja->id);
-        dd($url);
-
         $qrCode = QrCode::size(250)->margin(1)->generate($url);
 
         return view('admin.meja.cetak-qr', compact('meja', 'qrCode'));
