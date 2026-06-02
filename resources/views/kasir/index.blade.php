@@ -229,7 +229,7 @@
         @endphp
 
         <a href="{{ route('kasir.detail', $meja->id) }}"
-           class="bg-white rounded-2xl shadow-md border border-gray-100 p-8 hover:shadow-lg hover:scale-[1.02] transition duration-200 h-[250px] flex flex-col justify-between">
+           class="bg-white rounded-2xl shadow-md border border-gray-100 p-8 hover:shadow-lg hover:scale-[1.02] transition duration-200 h-[250px] flex flex-col overflow-hidden justify-between">
 
           {{-- Header Meja --}}
           <div>
@@ -252,7 +252,7 @@
             {{-- Isi Pesanan --}}
             @if($aktif)
               <div class="space-y-2">
-                <div class="text-xl font-semibold text-gray-900">🧍
+                <div class="text-xl font-semibold truncate text-gray-900">🧍
                   {{ $pesanan->pelanggan->nama_pelanggan ?? '-' }}
                 </div>
 
