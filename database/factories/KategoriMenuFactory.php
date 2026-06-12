@@ -12,7 +12,7 @@ class KategoriMenuFactory extends Factory
     public function definition()
     {
         return [
-            'nama' => 'Makanan',
+            'nama' => 'Kategori-' . fake()->unique()->numberBetween(1, 1000),
         ];
     }
 }

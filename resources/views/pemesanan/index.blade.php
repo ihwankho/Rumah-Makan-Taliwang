@@ -27,6 +27,27 @@
 @endsection
 
 @section('content')
+{{-- PERINGATAN MEJA TERKUNCI (Hanya muncul untuk HP orang iseng) --}}
+  @if($isLocked)
+    <div class="m-4 rounded-2xl bg-red-50 border border-red-200 p-5 shadow-sm text-center">
+      <div class="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+        </svg>
+      </div>
+      <h3 class="font-bold text-red-800 text-lg">Meja Sedang Digunakan</h3>
+      <p class="text-sm text-red-600 mt-1">
+        Meja ini sudah ditempati atas nama <span class="font-bold uppercase">{{ $namaPenghuni }}</span>. 
+        Anda tidak dapat membuat pesanan baru dari perangkat ini.
+      </p>
+    </div>
+
+    {{-- Kunci interaksi layar dengan CSS --}}
+    <style>
+      .menu-card button { display: none !important; } /* Hilangkan tombol + dan - */
+      #bottom-bar { display: none !important; } /* Sembunyikan keranjang */
+    </style>
+  @endif
 
   {{-- Tabs kategori --}}
 <div class="bg-white border-b sticky top-0 z-10">
@@ -102,6 +123,59 @@
       <div id="bottom-cart-total" class="font-bold text-lg">Rp {{ number_format($cartTotal, 0, ',', '.') }}</div>
     </a>
   </div>
+
+  {{-- MODAL PERINGATAN MENU HABIS (Floating & Modern) --}}
+  @if(session('warning_habis'))
+    <div id="habisModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 opacity-100 transition-opacity duration-300">
+      
+      {{-- Modal Content --}}
+      <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden transform scale-100 transition-all duration-300 translate-y-0" id="habisModalContent">
+        
+        {{-- Ikon Ilustrasi --}}
+        <div class="bg-orange-50 pt-8 pb-5 flex items-center justify-center relative">
+          {{-- Lingkaran dekorasi --}}
+          <div class="absolute top-0 left-0 w-full h-full overflow-hidden">
+             <div class="absolute -top-10 -right-10 w-32 h-32 bg-orange-100 rounded-full opacity-50"></div>
+             <div class="absolute -bottom-5 -left-5 w-20 h-20 bg-orange-100 rounded-full opacity-50"></div>
+          </div>
+          
+          {{-- Ikon --}}
+          <div class="relative w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center animate-bounce z-10 border-4 border-orange-100">
+            <svg class="w-10 h-10 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+          </div>
+        </div>
+
+        {{-- Teks Pesan --}}
+        <div class="px-6 py-4 text-center">
+          <h3 class="text-xl font-extrabold text-gray-800 mb-2">Oops! Ada yang habis</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">
+            {{ session('warning_habis') }}
+          </p>
+        </div>
+
+        {{-- Aksi (Tombol) --}}
+        <div class="p-6 pt-2 flex flex-col gap-3">
+          
+          {{-- Cek apakah keranjang masih ada isinya --}}
+          @if(count(session('cart', [])) > 0)
+            <a href="{{ route('menu.checkout', ['meja' => $meja, 'from' => request('from')]) }}" 
+               class="w-full py-3.5 px-4 bg-orange-600 text-white font-semibold rounded-2xl text-center hover:bg-orange-700 transition-colors shadow-lg shadow-orange-200 flex items-center justify-center gap-2">
+              Tetap Lanjut Checkout
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </a>
+          @endif
+
+          <button type="button" onclick="tutupModalHabis()" 
+             class="w-full py-3.5 px-4 bg-gray-50 text-gray-600 font-semibold rounded-2xl text-center hover:bg-gray-100 transition-colors border border-gray-200">
+            Pilih Menu Lain
+          </button>
+        </div>
+        
+      </div>
+    </div>
+  @endif
 @endsection
 
 @push('scripts')
@@ -183,5 +257,22 @@
         }
     });
   }
+  {{-- Script Animasi Penutup Modal --}}
+      function tutupModalHabis() {
+        const modal = document.getElementById('habisModal');
+        const content = document.getElementById('habisModalContent');
+        
+        // Jalankan efek animasi keluar (memudar dan turun)
+        modal.classList.remove('opacity-100');
+        modal.classList.add('opacity-0');
+        
+        content.classList.remove('scale-100', 'translate-y-0');
+        content.classList.add('scale-95', 'translate-y-4');
+        
+        // Hapus elemen dari DOM setelah animasi selesai (300ms)
+        setTimeout(() => {
+          if(modal) modal.remove();
+        }, 300);
+      }
 </script>
 @endpush

@@ -15,8 +15,26 @@ use App\Events\PesananBaruDibuat;
 
 class PemesananController extends Controller
 {
-    public function index(Request $request, $meja)
+    public function index(Request $request, $meja) // Parameter menggunakan $meja
     {
+        // 1. Cek apakah meja sedang aktif digunakan
+        $pesananAktif = Pesanan::with('pelanggan')
+            ->where('id_meja', $meja) // PERBAIKAN 1: Sesuaikan dengan nama parameter $meja
+            ->where('status_pesanan', '!=', 'dibayar')
+            ->first();
+
+        $isLocked = false;
+        $namaPenghuni = '';
+
+        // 2. Logika Pengunci (Abaikan jika yang buka adalah Kasir)
+        if ($pesananAktif && $request->from !== 'kasir') {
+            // Jika session_id di DB ADA, dan TIDAK SAMA dengan session HP saat ini -> KUNCI!
+            if ($pesananAktif->session_id && $pesananAktif->session_id !== session()->getId()) {
+                $isLocked = true;
+                $namaPenghuni = $pesananAktif->pelanggan->nama_pelanggan ?? 'Pelanggan';
+            }
+        }
+
         $kategoris = KategoriMenu::orderBy('nama')->get();
 
         $menus = Menu::where('is_aktif', true)
@@ -35,7 +53,9 @@ class PemesananController extends Controller
             'menus',
             'cart',
             'cartQty',
-            'cartTotal'
+            'cartTotal',
+            'isLocked',     // PERBAIKAN 2: Kirim variabel ini ke view
+            'namaPenghuni'  // PERBAIKAN 2: Kirim variabel ini ke view
         ));
     }
 
@@ -98,6 +118,62 @@ class PemesananController extends Controller
     public function checkout($meja)
     {
         $cart = session('cart', []);
+
+        // Jika keranjang kosong sejak awal
+        if (count($cart) === 0) {
+            return redirect()->route('menu.index', $meja)->with('error', 'Keranjang masih kosong!');
+        }
+
+        $inactiveMenus = [];
+        $activeCart = [];
+        $isCartChanged = false;
+
+        // 1. Cek ketersediaan setiap menu di keranjang ke database
+        foreach ($cart as $key => $item) {
+            // Asumsi model kamu bernama Menu
+            $menu = \App\Models\Menu::find($item['id']);
+
+            if (!$menu || !$menu->is_aktif) {
+                // Jika menu dihapus dari DB atau di-nonaktifkan kasir/dapur
+                $inactiveMenus[] = $item['nama'];
+                $isCartChanged = true;
+            } else {
+                // Jika menu masih tersedia, masukkan kembali ke keranjang aktif
+                $activeCart[$key] = $item;
+            }
+        }
+
+        // 2. Jika ditemukan menu yang habis
+        if ($isCartChanged) {
+            // Perbarui isi keranjang hanya dengan menu yang masih ada
+            session(['cart' => $activeCart]);
+
+            // Jika setelah difilter keranjang jadi kosong (karena semua pesanan habis)
+            if (count($activeCart) === 0) {
+                return redirect()->route(
+                    'menu.index',
+                    [
+                        'meja' => $meja,
+                        'from' => request('from')
+                    ]
+                ) // Sesuaikan nama route-mu
+                    ->with('warning_habis', 'Maaf, semua menu yang Anda pilih baru saja habis.');
+            }
+
+            // Jika masih ada sisa menu lain di keranjang, kembalikan dengan pesan warning
+            $pesanHabis = 'Maaf, menu berikut baru saja habis: ' . implode(', ', $inactiveMenus) . '. .';
+
+            return redirect()->route(
+                'menu.index',
+                [
+                    'meja' => $meja,
+                    'from' => request('from')
+                ]
+            ) // Arahkan kembali ke halaman daftar menu
+                ->with('warning_habis', $pesanHabis);
+        }
+
+        // --- 3. Lanjut ke proses checkout normal jika semua aman ---
         $cartQty = array_sum(array_column($cart, 'qty'));
         $cartTotal = array_sum(array_map(fn($item) => $item['qty'] * $item['harga'], $cart));
 
@@ -210,6 +286,7 @@ class PemesananController extends Controller
                     'tipe_pesanan'   => $request->tipe,
                     'status_pesanan' => 'menunggu',
                     'total_harga'    => $cartTotal,
+                    'session_id'     => ($request->from === 'kasir') ? null : session()->getId(),
                 ]);
 
                 // Karena ini pesanan baru, tidak mungkin ada item duplikat, jadi langsung create
@@ -250,23 +327,35 @@ class PemesananController extends Controller
 
     public function pesanan($mejaId)
     {
-        $pesananId = session('last_pesanan_id');
-
-        if (!$pesananId) {
-            return redirect()->route('menu.index', $mejaId);
-        }
-
-        $pesanan = Pesanan::with(['detailPesanans.menu', 'pelanggan', 'meja'])
-            ->where('id', $pesananId)
+        // 1. Ambil SEMUA pesanan di meja ini yang belum selesai atau dibayar
+        $pesanans = Pesanan::with(['detailPesanans.menu', 'pelanggan', 'meja'])
             ->where('id_meja', $mejaId)
-            ->first();
+            ->whereNotIn('status_pesanan', ['dibayar'])
+            ->orderBy('created_at', 'desc') // Urutkan dari yang terbaru
+            ->get();
 
-        if (!$pesanan) {
+        // 2. Jika tidak ada pesanan aktif sama sekali, kembalikan ke menu
+        if ($pesanans->isEmpty()) {
             return redirect()->route('menu.index', $mejaId);
         }
 
-        $pesanan->detailPesanans = $pesanan->detailPesanans->filter(fn($detail) => $detail->menu->perlu_dimasak)->values();
+        $totalSemuaPesanan = 0;
 
-        return view('pemesanan.pesanan', compact('mejaId', 'pesanan'));
+        // 3. Filter detail (hanya yang perlu dimasak) dan hitung Grand Total
+        foreach ($pesanans as $pesanan) {
+            $pesanan->detailPesanans = $pesanan->detailPesanans->filter(function ($detail) {
+                return $detail->menu->perlu_dimasak;
+            })->values();
+
+            // Jumlahkan total harga dari semua pesanan aktif untuk ditampilkan di bawah
+            $totalSemuaPesanan += $pesanan->total_harga;
+        }
+
+        // 4. Ambil info pelanggan dan meja (cukup ambil dari baris pertama karena datanya sama)
+        $infoPelanggan = $pesanans->first()->pelanggan;
+        $infoMeja = $pesanans->first()->meja;
+
+        // Kirim data baru ke view
+        return view('pemesanan.pesanan', compact('mejaId', 'pesanans', 'totalSemuaPesanan', 'infoPelanggan', 'infoMeja'));
     }
 }

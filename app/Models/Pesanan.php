@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Pesanan extends Model
 {
+    use HasFactory;
     protected $table = 'pesanans';
 
     protected $fillable = [
@@ -14,6 +16,7 @@ class Pesanan extends Model
         'tipe_pesanan',
         'status_pesanan',
         'total_harga',
+        'session_id',
     ];
 
     public function meja()

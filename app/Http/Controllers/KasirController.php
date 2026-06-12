@@ -118,7 +118,7 @@ class KasirController extends Controller
             // --- MULAI PROSES PEMBAYARAN NORMAL ---
             Pembayaran::create([
                 'id_pesanan' => $pesananUtama->id, // Pakai ID Pesanan Utama yang sudah digabung
-                'id_kasir' => 1, // sementara
+                'id_kasir' => auth()->id(),
                 'metode_pembayaran' => $request->metode_pembayaran,
                 'total_bayar' => $pesananUtama->total_harga,
                 'status_pembayaran' => 'dibayar',

@@ -506,27 +506,42 @@
     });
 
   });
+  // 1. Tambahkan variabel penanda di paling atas
+  let isMenuChanged = false;
+
   // Kelola Menu Modal
   document.addEventListener('DOMContentLoaded', function () {
     const openButton = document.getElementById('openKelolaMenuButton');
     const closeButton = document.getElementById('kelolaMenuClose');
     const modal = document.getElementById('kelolaMenuModal');
 
+    // 2. Buat fungsi khusus untuk menutup modal
+    function closeModal() {
+      if (isMenuChanged) {
+        // Jika ada status menu yang diubah, refresh halamannya
+        window.location.reload(); 
+      } else {
+        // Jika tidak ada yang diubah, tutup modal seperti biasa
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
     if (openButton && closeButton && modal) {
       openButton.addEventListener('click', function () {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+        // Reset penanda saat modal dibuka
+        isMenuChanged = false; 
       });
 
-      closeButton.addEventListener('click', function () {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-      });
+      // 3. Gunakan fungsi closeModal di tombol X
+      closeButton.addEventListener('click', closeModal);
 
+      // 4. Gunakan fungsi closeModal saat klik area luar modal
       modal.addEventListener('click', function (event) {
         if (event.target === modal) {
-          modal.classList.add('hidden');
-          modal.classList.remove('flex');
+          closeModal();
         }
       });
     }
@@ -542,15 +557,15 @@
         const statusText = document.getElementById(`status-text-${menuId}`);
         const previousState = !isChecked; 
         const url = `/dapur/menu/${menuId}/toggle`; 
+        
         fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}', // Tetap gunakan cara aslimu
             'Accept': 'application/json'
           },
-          body: JSON.stringify({
-          })
+          body: JSON.stringify({})
         })
         .then(response => {
            if(!response.ok) {
@@ -559,6 +574,9 @@
            return response; 
         })
         .then(data => {
+            // 5. TANDAI BAHWA ADA PERUBAHAN STATUS BERHASIL DISIMPAN
+            isMenuChanged = true;
+
             if (isChecked) {
               statusText.textContent = 'Tersedia';
               statusText.classList.remove('text-gray-400');
@@ -578,17 +596,5 @@
     });
   });
 </script>
-{{-- <script type="module">
-    // Mendengarkan channel 'dapur-channel'
-    window.Echo.channel('dapur-channel')
-        .listen('PesananBaruDibuat', (event) => {
-            
-            // 1. Munculkan peringatan (Bisa diganti dengan Toast agar lebih cantik)
-            alert('🔔 INFO DAPUR: \n' + event.pesan + ' di Meja ' + event.nomor_meja);
-            
-            // 2. Refresh halaman otomatis agar pesanan baru muncul
-            // Nanti jika sudah pro, Anda bisa memunculkan div baru tanpa refresh
-            window.location.reload(); 
-        });
-</script> --}}
+
 </html>
