@@ -31,7 +31,7 @@
 
                 <div class="flex-shrink-0">
                     <img 
-                        src="{{ asset('storage/menus/logo.png') }}" 
+                        src="{{ asset('images/logo.png') }}" 
                         alt="Logo" 
                         class="w-12 h-12 object-cover rounded-full"
                     >
