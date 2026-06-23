@@ -21,6 +21,7 @@ Route::post('/menu/{meja}/confirm', [PemesananController::class, 'confirmOrder']
 Route::get('/menu/{meja}/pesanan', [PemesananController::class, 'pesanan'])->name('menu.pesanan');
 
 Route::get('/', [AuthController::class, 'show'])->name('login');
+Route::get('/login', [AuthController::class, 'show']);
 Route::post('/login', [AuthController::class, 'login'])->name('login.process');
 
 Route::middleware(['auth'])->group(function () {
