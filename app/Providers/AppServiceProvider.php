@@ -20,10 +20,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if (config('app.env') === 'production' || env('APP_URL') !== 'http://localhost') {
-            URL::forceScheme('https');
+        // if (config('app.env') === 'production' || env('APP_URL') !== 'http://localhost') {
+        //     URL::forceScheme('https');
 
-            // Mengambil base URL langsung dari APP_URL di .env Anda
+        //     // Mengambil base URL langsung dari APP_URL di .env Anda
+        //     URL::forceRootUrl(config('app.url'));
+        // }
+        // Hanya paksa HTTPS jika APP_ENV di .env diset menjadi 'production'
+        if (config('app.env') === 'production') {
+            URL::forceScheme('https');
             URL::forceRootUrl(config('app.url'));
         }
     }

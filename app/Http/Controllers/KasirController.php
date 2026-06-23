@@ -16,7 +16,7 @@ class KasirController extends Controller
     {
         $mejas = Meja::orderByRaw('CAST(nomor_meja AS UNSIGNED) ASC')->get();
 
-        // Ambil pesanan terakhir per meja yang statusnya selesai (siap dibayar)
+        // 
         $pesananTerakhir = Pesanan::with(['pelanggan'])
             ->where('status_pesanan', '!=', 'dibayar')
             ->orderBy('created_at', 'desc')
@@ -32,35 +32,35 @@ class KasirController extends Controller
 
     public function detailMeja(Meja $meja)
     {
-        // 1. Ambil SEMUA pesanan aktif di meja ini (bisa lebih dari 1)
+        // 
         $daftarPesanan = Pesanan::with(['detailPesanans.menu', 'pelanggan', 'meja'])
             ->where('id_meja', $meja->id)
             ->where('status_pesanan', '!=', 'dibayar')
-            ->orderBy('created_at', 'asc') // Urutkan dari yang paling pertama
+            ->orderBy('created_at', 'asc') 
             ->get();
 
         if ($daftarPesanan->isEmpty()) {
             return redirect()->route('kasir.index')->with('error', 'Meja tidak memiliki pesanan aktif.');
         }
 
-        // 2. Hitung total gabungan dari semua pesanan
+        // 
         $totalGabungan = $daftarPesanan->sum('total_harga');
 
-        // 3. Ambil data pesanan utama (pesanan yang pertama kali dibuat)
+        //
         $pesananUtama = $daftarPesanan->first();
 
-        // Kirim 'daftarPesanan' dan 'totalGabungan' ke view
+        //
         return view('kasir.detail', compact('meja', 'daftarPesanan', 'pesananUtama', 'totalGabungan'));
     }
 
-    // PERHATIKAN: Parameter berubah dari Pesanan $pesanan menjadi Meja $meja
+    // 
     public function bayar(Request $request, Meja $meja)
     {
         $request->validate([
             'metode_pembayaran' => 'required|in:tunai,qris',
         ]);
 
-        // Kita gunakan transaksi DB agar aman
+        // 
         $idPesananNota = DB::transaction(function () use ($request, $meja) {
 
             // Ambil SEMUA pesanan aktif di meja beserta isi itemnya
@@ -74,50 +74,50 @@ class KasirController extends Controller
                 throw new \Exception('Tidak ada pesanan aktif untuk dibayar.');
             }
 
-            // Pesanan pertama akan menjadi "Wadah Utama" struk
+            //
             $pesananUtama = $daftarPesanan->first();
 
-            // JIKA ADA PESANAN TAMBAHAN (BUNGKUS/LAINNYA), GABUNGKAN KE WADAH UTAMA
+            // 
             if ($daftarPesanan->count() > 1) {
                 $totalTambahan = 0;
 
                 foreach ($daftarPesanan->skip(1) as $pesananLain) {
 
                     foreach ($pesananLain->detailPesanans as $detailLain) {
-                        // KUNCI PERBAIKAN: Cek apakah menu ini sudah ada di Pesanan Utama?
+                        // 
                         $detailUtama = DetailPesanan::where('id_pesanan', $pesananUtama->id)
                             ->where('id_menu', $detailLain->id_menu)
                             ->first();
 
                         if ($detailUtama) {
-                            // JIKA ADA: Tambahkan Qty dan Subtotalnya saja
+                            //
                             $detailUtama->update([
                                 'jumlah' => $detailUtama->jumlah + $detailLain->jumlah,
                                 'subtotal' => $detailUtama->subtotal + $detailLain->subtotal,
                             ]);
-                            // Hapus item dari pesanan cangkang
+                            //
                             $detailLain->delete();
                         } else {
-                            // JIKA BELUM ADA: Cukup pindahkan ID Pesanannya ke Pesanan Utama
+                            // 
                             $detailLain->update(['id_pesanan' => $pesananUtama->id]);
                         }
                     }
 
                     $totalTambahan += $pesananLain->total_harga;
 
-                    // Hapus pesanan cangkang karena isinya sudah dipindah atau dihapus
+                    // 
                     $pesananLain->delete();
                 }
 
-                // Update total harga pesanan utama
+                // 
                 $pesananUtama->update([
                     'total_harga' => $pesananUtama->total_harga + $totalTambahan
                 ]);
             }
 
-            // --- MULAI PROSES PEMBAYARAN NORMAL ---
+            //PROSES PEMBAYARAN
             Pembayaran::create([
-                'id_pesanan' => $pesananUtama->id, // Pakai ID Pesanan Utama yang sudah digabung
+                'id_pesanan' => $pesananUtama->id,
                 'id_kasir' => auth()->id(),
                 'metode_pembayaran' => $request->metode_pembayaran,
                 'total_bayar' => $pesananUtama->total_harga,
@@ -129,7 +129,7 @@ class KasirController extends Controller
                 'status_pesanan' => 'dibayar',
             ]);
 
-            return $pesananUtama->id; // Lempar ID ini untuk dicetak ke Nota
+            return $pesananUtama->id;
         });
 
         return redirect()->route('kasir.nota', $idPesananNota)
@@ -185,7 +185,7 @@ class KasirController extends Controller
         $jumlahTambah = (int) $request->jumlah;
         $subtotal = $menu->harga * $jumlahTambah;
 
-        // Cek apakah menu ini sudah ada di cart
+        // Cek  cart
         $itemKey = null;
         foreach ($cart as $key => $item) {
             if ($item['id_menu'] == $menu->id) {
@@ -195,7 +195,7 @@ class KasirController extends Controller
         }
 
         if ($itemKey !== null) {
-            // Jika sudah ada, tambahkan jumlahnya
+            // 
             $cart[$itemKey]['jumlah'] += $jumlahTambah;
             $cart[$itemKey]['subtotal'] = $cart[$itemKey]['jumlah'] * $menu->harga;
         } else {
@@ -209,7 +209,7 @@ class KasirController extends Controller
             ];
         }
 
-        // Simpan keranjang ke session
+        //
         session(["cart_meja_{$meja->id}" => $cart]);
 
         return redirect()->route('kasir.tambah.form', $meja->id);
@@ -223,7 +223,7 @@ class KasirController extends Controller
 
         $cart = session("cart_meja_{$meja->id}", []);
 
-        // Hapus item dari cart
+        // Hapus item cart
         $cart = array_filter($cart, function ($item) use ($request) {
             return $item['id_menu'] != $request->menu_id;
         });
@@ -315,18 +315,18 @@ class KasirController extends Controller
 
     public function batalkanPesananBaru(Meja $meja)
     {
-        // 1. Ambil HANYA pesanan yang masih bisa dibatalkan (belum selesai/dibayar)
+        // Ambil  pesanan
         $pesanansBaru = Pesanan::where('id_meja', $meja->id)
             ->whereNotIn('status_pesanan', ['selesai', 'dibayar'])
             ->get();
 
-        // 2. Jika tidak ada pesanan baru sama sekali
+        //
         if ($pesanansBaru->isEmpty()) {
             return redirect()->route('kasir.detail', $meja->id)
                 ->with('error', 'Gagal! Semua pesanan di meja ini sudah selesai dimasak.');
         }
 
-        // 3. JIKA ADA: Hapus pesanan yang masih baru tersebut
+        //Hapus pesanan yang masih baru
         DB::transaction(function () use ($pesanansBaru) {
             $pesananIds = $pesanansBaru->pluck('id');
 
@@ -337,15 +337,15 @@ class KasirController extends Controller
             Pesanan::whereIn('id', $pesananIds)->delete();
         });
 
-        // 4. CEK SISA PESANAN: Apakah masih ada pesanan (yang sudah selesai) di meja ini?
+        //CEK SISA PESANAN
         $sisaPesanan = Pesanan::where('id_meja', $meja->id)->exists();
 
         if (!$sisaPesanan) {
-            // Jika meja jadi kosong melompong, kembali ke depan (index)
+            // 
             return redirect()->route('kasir.index')
                 ->with('success', 'Seluruh pesanan di meja ' . $meja->nomor_meja . ' berhasil dibatalkan.');
         } else {
-            // Jika masih ada sisa pesanan yang sudah dimasak, tetap di halaman detail
+            //
             return redirect()->route('kasir.detail', $meja->id)
                 ->with('success', 'Pesanan tambahan berhasil dibatalkan');
         }

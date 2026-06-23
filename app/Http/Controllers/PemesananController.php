@@ -15,9 +15,9 @@ use App\Events\PesananBaruDibuat;
 
 class PemesananController extends Controller
 {
-    public function index(Request $request, $meja) // Parameter menggunakan $meja
+    public function index(Request $request, $meja)
     {
-        // 1. Cek apakah meja sedang aktif digunakan
+        //Cek meja sedang aktif
         $pesananAktif = Pesanan::with('pelanggan')
             ->where('id_meja', $meja) // PERBAIKAN 1: Sesuaikan dengan nama parameter $meja
             ->where('status_pesanan', '!=', 'dibayar')

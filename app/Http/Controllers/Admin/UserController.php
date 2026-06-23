@@ -26,7 +26,7 @@ class UserController extends Controller
             'name' => 'required|string|max:100',
             'username' => 'required|string|max:50|unique:users,username',
             'password' => 'required|string|min:6',
-            'role' => 'required|in:1,2,3', // 1=admin,2=kasir,3=dapur
+            'role' => 'required|in:1,2,3', 
         ]);
 
         User::create([
@@ -60,7 +60,7 @@ class UserController extends Controller
             'role' => (int) $request->role,
         ];
 
-        // ✅ password hanya diubah jika diisi
+        // 
         if ($request->password) {
             $dataUpdate['password'] = Hash::make($request->password);
         }

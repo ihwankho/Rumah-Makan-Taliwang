@@ -2,22 +2,21 @@ import "./bootstrap";
 import "./echo";
 
 // === LOGIKA REAL-TIME UNTUK DAPUR ===
-// Cek apakah URL saat ini mengandung kata "dapur"
 if (window.location.pathname.includes("dapur")) {
     // Beri jeda 0.5 detik agar Echo siap sepenuhnya
     setTimeout(() => {
         window.Echo.channel("dapur-channel").listen(
             "PesananBaruDibuat",
             (event) => {
-                // 1. Buat elemen div untuk notifikasi
+                // elemen div untuk notifikasi
                 const toastDiv = document.createElement("div");
                 toastDiv.id = "realtime-toast";
 
-                // Class awal: tembus pandang (opacity-0) dan posisi agak ke atas (-translate-y-5)
+                // 
                 toastDiv.className =
                     "fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] transition-all duration-500 ease-in-out opacity-0 -translate-y-5";
 
-                // 2. Isi dengan desain HTML Anda (Warna biru agar beda dengan notif sukses)
+                // 
                 toastDiv.innerHTML = `
                     <div class="bg-blue-100 border border-green-400-400 text-green-800 px-6 py-3 rounded-2xl shadow-xl text-lg font-bold flex items-center gap-4">
                         <span>🔔 ${event.pesan} (Meja ${event.nomor_meja})</span>
@@ -28,19 +27,19 @@ if (window.location.pathname.includes("dapur")) {
                     </div>
                 `;
 
-                // 3. Masukkan notifikasi ke dalam layar browser
+                // notifikasi ke dalam layar 
                 document.body.appendChild(toastDiv);
 
-                // 4. Jalankan animasi "Turun & Muncul"
+                // animasi "Turun & Muncul"
                 setTimeout(() => {
                     toastDiv.classList.remove("opacity-0", "-translate-y-5");
                 }, 50);
 
-                // 5. Setelah 3 detik, hilangkan dan reload halamannya
+                //  hilangkan dan reload halamannya
                 setTimeout(() => {
                     toastDiv.classList.add("opacity-0", "-translate-y-5"); // Animasi naik
 
-                    // Tunggu animasi naik selesai (500ms), lalu refresh untuk memunculkan antrian baru
+                    // refresh untuk memunculkan antrian baru
                     setTimeout(() => {
                         window.location.reload();
                     }, 500);
@@ -54,7 +53,7 @@ if (window.location.pathname.includes("dapur")) {
 // ==========================================
 if (window.location.pathname.includes("kasir")) {
     setTimeout(() => {
-        // Kasir juga nguping dari channel dapur!
+        //
         window.Echo.channel("dapur-channel").listen(
             "PesananBaruDibuat",
             (event) => {
@@ -63,7 +62,7 @@ if (window.location.pathname.includes("kasir")) {
                 toastDivKasir.className =
                     "fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] transition-all duration-500 ease-in-out opacity-0 -translate-y-5";
 
-                // Desain notifikasi Kasir (Bisa disesuaikan warnanya)
+                // Desain notifikasi Kasir
                 toastDivKasir.innerHTML = `
                     <div class="bg-indigo-100 border border-indigo-400 text-indigo-800 px-6 py-3 rounded-2xl shadow-xl text-lg font-bold flex items-center gap-4">
                         <span>🛒 Meja ${event.nomor_meja} Baru Saja Memesan!</span>

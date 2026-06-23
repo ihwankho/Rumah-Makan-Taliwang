@@ -91,7 +91,7 @@ class MenuController extends Controller
 
         $pathGambar = $menu->gambar;
 
-        // kalau admin upload gambar baru
+        // 
         if ($request->hasFile('gambar')) {
             // hapus gambar lama kalau ada
             if ($menu->gambar && Storage::disk('public')->exists($menu->gambar)) {
@@ -117,7 +117,7 @@ class MenuController extends Controller
 
     public function destroy(Menu $menu)
     {
-        // hapus gambar kalau ada
+        // 
         if ($menu->gambar && Storage::disk('public')->exists($menu->gambar)) {
             Storage::disk('public')->delete($menu->gambar);
         }

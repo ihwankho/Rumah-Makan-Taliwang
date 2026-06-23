@@ -56,7 +56,7 @@ class KategoriMenuController extends Controller
 
     public function destroy(KategoriMenu $kategori_menu)
     {
-        // ✅ jika kategori masih dipakai menu, jangan hapus
+        // 
         if ($kategori_menu->menus()->count() > 0) {
             return redirect()->route('admin.kategori-menu.index')
                 ->with('error', 'Kategori tidak bisa dihapus karena masih dipakai menu ❌');
